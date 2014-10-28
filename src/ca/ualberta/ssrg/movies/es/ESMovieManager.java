@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -27,8 +28,8 @@ import com.google.gson.reflect.TypeToken;
 
 public class ESMovieManager implements IMovieManager {
 
-	private static final String SEARCH_URL = "http://cmput301.softwareprocess.es:8080/testing/movie/_search";
-	private static final String RESOURCE_URL = "http://cmput301.softwareprocess.es:8080/testing/movie/";
+	private static final String SEARCH_URL = "http://cmput301.softwareprocess.es:8080/testing/movie/_search"; 
+	private static final String RESOURCE_URL = "http://cmput301.softwareprocess.es:8080/testing/movie/"; 
 	private static final String TAG = "MovieSearch";
 
 	private Gson gson;
@@ -42,23 +43,24 @@ public class ESMovieManager implements IMovieManager {
 	 */
 	public Movie getMovie(int id) {
 
-		HttpClient httpClient = new DefaultHttpClient();
-		HttpGet httpGet = new HttpGet(RESOURCE_URL + id);
+		HttpClient httpClient = new DefaultHttpClient();   
+		HttpGet httpGet = new HttpGet(RESOURCE_URL + id);  
 
-		HttpResponse response;
+		HttpResponse response; 
 
-		try {
-			response = httpClient.execute(httpGet);
-			SearchHit<Movie> sr = parseMovieHit(response);
-			return sr.getSource();
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		} 
+		try { 
+			response = httpClient.execute(httpGet); 
+			SearchHit<Movie> sr = parseMovieHit(response); 
+			return sr.getSource(); 
+ 
+		} catch (Exception e) { 
+			e.printStackTrace(); 
+		}  
 
 		return null;
 	}
 
+	
 	
 
 	/**
@@ -69,9 +71,45 @@ public class ESMovieManager implements IMovieManager {
 		List<Movie> result = new ArrayList<Movie>();
 
 		// TODO: Implement search movies using ElasticSearch
+		if ("".equals(searchString) || searchString==null){
+			searchString = "*";
+		}
+
+		HttpClient httpClient = new DefaultHttpClient();
+
+		try {
+			HttpPost searchRequest = createSearchRequest(searchString, field);
+			HttpResponse response = httpClient.execute(searchRequest);
+			String status = response.getStatusLine().toString();
+			Log.i(TAG, status);
+			
+			SearchResponse<Movie> esResponse = parseSearchResponse(response);
+			
+			Hits<Movie> hits = esResponse.getHits();
+			
+			if (hits != null){
+				if (hits.getHits() != null){
+					//there are movies that fit the search
+					for (SearchHit<Movie> sesr : hits.getHits()){
+						result.add(sesr.getSource());
+					}
+				}
+			}
+			
+			
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		} catch (ClientProtocolException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		return result;
 	}
+	
+	
+	
 
 	/**
 	 * Adds a new movie
@@ -80,17 +118,17 @@ public class ESMovieManager implements IMovieManager {
 		HttpClient httpClient = new DefaultHttpClient();
 
 		try {
-			HttpPost addRequest = new HttpPost(RESOURCE_URL + movie.getId());
+			HttpPost addRequest = new HttpPost(RESOURCE_URL + movie.getId()); //post request
 
 			StringEntity stringEntity = new StringEntity(gson.toJson(movie));
 			addRequest.setEntity(stringEntity);
-			addRequest.setHeader("Accept", "application/json");
+			addRequest.setHeader("Accept", "application/json"); //says that what we're going to send is a json unit
 
 			HttpResponse response = httpClient.execute(addRequest);
 			String status = response.getStatusLine().toString();
-			Log.i(TAG, status);
+			Log.i(TAG, status); //log status (404: couldn't find resource)
 
-		} catch (Exception e) {
+		} catch (Exception e) { //what if I didn't have internet connection?? This is not good enough for the project
 			e.printStackTrace();
 		}
 	}
@@ -102,59 +140,59 @@ public class ESMovieManager implements IMovieManager {
 		HttpClient httpClient = new DefaultHttpClient();
 
 		try {
-			HttpDelete deleteRequest = new HttpDelete(RESOURCE_URL + movieId);
-			deleteRequest.setHeader("Accept", "application/json");
+			HttpDelete deleteRequest = new HttpDelete(RESOURCE_URL + movieId);  
+			deleteRequest.setHeader("Accept", "application/json");  
+ 
+			HttpResponse response = httpClient.execute(deleteRequest); 
+			String status = response.getStatusLine().toString(); 
+			Log.i(TAG, status); 
 
-			HttpResponse response = httpClient.execute(deleteRequest);
-			String status = response.getStatusLine().toString();
-			Log.i(TAG, status);
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		} catch (Exception e) { 
+			e.printStackTrace(); 
+		} 
 	}
 
 	/**
 	 * Creates a search request from a search string and a field
 	 */
-	private HttpPost createSearchRequest(String searchString, String field)	throws UnsupportedEncodingException {
-		
-		HttpPost searchRequest = new HttpPost(SEARCH_URL);
-
-		String[] fields = null;
-		if (field != null) {
-			fields = new String[1];
-			fields[0] = field;
-		}
-		
-		SimpleSearchCommand command = new SimpleSearchCommand(searchString,	fields);
-		
-		String query = command.getJsonCommand();
-		Log.i(TAG, "Json command: " + query);
-
-		StringEntity stringEntity;
-		stringEntity = new StringEntity(query);
-
-		searchRequest.setHeader("Accept", "application/json");
-		searchRequest.setEntity(stringEntity);
-
-		return searchRequest;
-	}
-	
-	private SearchHit<Movie> parseMovieHit(HttpResponse response) {
-		
-		try {
-			String json = getEntityContent(response);
-			Type searchHitType = new TypeToken<SearchHit<Movie>>() {}.getType();
-			
-			SearchHit<Movie> sr = gson.fromJson(json, searchHitType);
-			return sr;
+	private HttpPost createSearchRequest(String searchString, String field)	throws UnsupportedEncodingException { 
+		 
+		HttpPost searchRequest = new HttpPost(SEARCH_URL); 
+ 
+		String[] fields = null; 
+		if (field != null) { 
+			fields = new String[1]; 
+			fields[0] = field; 
 		} 
-		catch (IOException e) {
-			e.printStackTrace();
-		}
+ 		
+ 		SimpleSearchCommand command = new SimpleSearchCommand(searchString,	fields); 
+		 
+		String query = command.getJsonCommand(); 
+		Log.i(TAG, "Json command: " + query); 
+ 
+ 		StringEntity stringEntity; 
+		stringEntity = new StringEntity(query); 
+ 
+		searchRequest.setHeader("Accept", "application/json"); 
+		searchRequest.setEntity(stringEntity); 
+ 
+		return searchRequest; 
+	} 
+	
+	private SearchHit<Movie> parseMovieHit(HttpResponse response) { 
+ 		
+		try { 
+			String json = getEntityContent(response); 
+			Type searchHitType = new TypeToken<SearchHit<Movie>>() {}.getType(); 
+			 
+			SearchHit<Movie> sr = gson.fromJson(json, searchHitType); //make gson hit of type SearchHit<Movie>
+			return sr; 
+		}  
+		catch (IOException e) { 
+			e.printStackTrace(); 
+		} 
 		
-		return null;
+ 		return null; 
 	}
 
 	/**

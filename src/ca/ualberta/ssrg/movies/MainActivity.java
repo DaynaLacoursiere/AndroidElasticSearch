@@ -87,7 +87,11 @@ public class MainActivity extends Activity {
 
 		// Refresh the list when visible
 		// TODO: Search all
+		movies.clear();
+		Thread thread = new SearchThread(""); //empty for searchThread
+		thread.start();
 		
+	//	movieManager.searchMovies("", null); //empty to get all values
 	}
 
 	/** 
@@ -98,7 +102,10 @@ public class MainActivity extends Activity {
 		movies.clear();
 
 		// TODO: Extract search query from text view
-		
+		EditText searchTerm = (EditText) findViewById(R.id.editText1);
+		String toSearch = searchTerm.getText().toString();
+		Thread thread = new SearchThread(toSearch);
+		thread.start();
 		// TODO: Run the search thread
 		
 	}
@@ -126,7 +133,18 @@ public class MainActivity extends Activity {
 
 	class SearchThread extends Thread {
 		// TODO: Implement search thread
+		private String search;
 		
+		public SearchThread(String s) {
+			search = s;
+		}
+		
+		public void run(){
+			movies.clear();
+			movies.addAll(movieManager.searchMovies(search, null));
+			
+			runOnUiThread(doUpdateGUIList);
+		}
 	}
 
 	
